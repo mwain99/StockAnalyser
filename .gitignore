@@ -1,0 +1,76 @@
+# =============================================================
+# Stock Analyser - Git Ignore
+# =============================================================
+
+# --- Secrets & Environment ---
+local.env
+.env
+*.env
+!local.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual Environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+
+# --- IDEs ---
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Spark ---
+spark-warehouse/
+derby.log
+metastore_db/
+
+# --- Pipeline Output ---
+output/
+
+# --- Windows / Hadoop ---
+hadoop/
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Parquet / Data files ---
+*.parquet
+*.csv.tmp
