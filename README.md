@@ -242,7 +242,7 @@ Two specific issues were found and corrected in the original input file provided
 
 ## Ticker Validation
 
-Before any bar data is fetched from the API, every ticker in the input file is validated against the Polygon reference endpoint. This runs automatically as part of every full ingestion run.
+Before any bar data is fetched from the API, when we run the --validate-tickers flag every ticker in the input file is validated against the Polygon reference endpoint.
 
 **Checks performed:**
 
@@ -275,7 +275,7 @@ Invalid tickers are skipped and the pipeline continues with the remaining valid 
 **To debug a specific ticker manually:**
 
 ```bat
-python diagnostics/debug_ticker.py FB
+python diagnostics/debug_ticker.py MMC --date 2025-01-02
 ```
 
 This prints the raw Polygon reference response so you can see exactly what the API returns for that symbol.
@@ -454,8 +454,8 @@ python jobs/run_pipeline.py --input data/stocks_list_corrected.csv --validate-ti
 # Skip ingestion — reuse already-saved raw data and run transforms only
 python jobs/run_pipeline.py --skip-ingestion
 
-# Quick test with 4 stocks
-python jobs/run_pipeline.py --input data/stocks_list_test.csv --no-validate
+# Quick test with 5 stocks
+python jobs/run_pipeline.py --input data/stocks_list_test.csv --validate-tickers
 ```
 
 ```bat
