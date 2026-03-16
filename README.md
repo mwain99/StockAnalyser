@@ -181,7 +181,7 @@ cp local.env.example local.env
 # Then open local.env and set API_KEY=<your Polygon.io API key>
 
 # 6. Run the pipeline
-python jobs/run_pipeline.py --input data/stocks_list.csv
+python jobs/run_pipeline.py --input data/stocks_list_corrected.csv
 ```
 
 ---
