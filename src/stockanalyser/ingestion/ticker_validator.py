@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
@@ -56,16 +57,23 @@ def _normalise_name(name: str) -> set[str]:
     return {w for w in name.split() if len(w) > 2}
 
 
-def _names_match(expected: str, actual: str) -> bool:
+def _names_match(expected: str, actual: str, symbol: str = "") -> bool:
     """
-    Return True if the expected and actual company names share enough
-    meaningful words to be considered the same company.
-    Requires at least one meaningful word in common.
+    Return True if the expected and actual company names are considered
+    to be the same company.
 
-    If the expected name has meaningful words but the actual name reduces
-    to nothing (e.g. just "FB" or "FB Inc"), we treat that as a mismatch
-    rather than giving benefit of the doubt — a major company like Meta
-    would never have a one/two-letter name on Polygon.
+    Handles two cases:
+    1. Word overlap — at least one meaningful word in common. This covers
+       rebrands like "General Electric Company" → "GE Aerospace" (no word
+       overlap) by also checking if the ticker symbol appears in the actual
+       name.
+    2. Symbol in name — if the ticker symbol (e.g. "GE", "RTX") appears
+       in the actual company name, it is almost certainly the same company
+       that just rebranded.
+
+    If the actual name reduces to nothing (e.g. just "FB Inc") that is
+    treated as a mismatch since a major company would never have a bare
+    two-letter name on Polygon.
     """
     expected_words = _normalise_name(expected)
     actual_words = _normalise_name(actual)
@@ -78,8 +86,20 @@ def _names_match(expected: str, actual: str) -> bool:
     if not actual_words:
         return False
 
-    overlap = expected_words & actual_words
-    return len(overlap) > 0
+    # Check word overlap
+    if expected_words & actual_words:
+        return True
+
+    # Check if ticker symbol appears as a whole word in the actual name.
+    # e.g. 'GE' in 'GE Aerospace', 'RTX' in 'RTX Corporation'.
+    # Whole-word matching prevents 'FB' matching 'FB Financial' while
+    # still catching short symbols like 'GE' that appear as distinct words.
+    if symbol:
+        pattern = re.compile(r'\b' + re.escape(symbol) + r'\b', re.IGNORECASE)
+        if pattern.search(actual):
+            return True
+
+    return False
 
 
 @dataclass
@@ -126,7 +146,7 @@ class TickerValidator:
     reference API.
     """
 
-    REFERENCE_ENDPOINT = "{base_url}/v3/reference/tickers/{ticker}"
+    REFERENCE_ENDPOINT = "{base_url}/v3/reference/tickers/{ticker}?date={date}"
 
     def __init__(self, cfg: Settings = default_settings) -> None:
         self._cfg = cfg
@@ -208,7 +228,7 @@ class TickerValidator:
         with ThreadPoolExecutor(max_workers=self._cfg.api_max_workers) as executor:
             future_to_sym = {
                 executor.submit(
-                    self._check_one, sym, company_names.get(sym, "")
+                    self._check_one, sym, company_names.get(sym, ""), self._cfg.start_date
                 ): sym
                 for sym in symbols
             }
@@ -225,17 +245,34 @@ class TickerValidator:
 
         return results
 
-    def _check_one(self, symbol: str, expected_name: str = "") -> dict:
-        """Check a single ticker, optionally comparing the company name."""
+    def _check_one(self, symbol: str, expected_name: str = "", date: str = "") -> dict:
+        """Check a single ticker as of the analysis start date."""
+        logger.info("Validating ticker: %s", symbol)
         url = self.REFERENCE_ENDPOINT.format(
             base_url=self._cfg.api_base_url,
             ticker=symbol,
+            date=date or self._cfg.start_date,
         )
 
-        try:
-            resp = self._session.get(url, timeout=self._cfg.api_request_timeout)
-        except requests.RequestException as exc:
-            return {"valid": True, "warning": f"API unreachable: {exc}"}
+        for attempt in range(self._cfg.api_max_retries + 1):
+            # Enforce delay before every request to respect rate limits
+            if self._cfg.api_request_delay > 0:
+                time.sleep(self._cfg.api_request_delay)
+            try:
+                resp = self._session.get(url, timeout=self._cfg.api_request_timeout)
+            except requests.RequestException as exc:
+                return {"valid": True, "warning": f"API unreachable: {exc}"}
+
+            if resp.status_code == 429:
+                wait = 60.0 * (attempt + 1)
+                logger.warning(
+                    "Rate-limited (429) validating %s on attempt %d — waiting %.0fs",
+                    symbol, attempt + 1, wait,
+                )
+                time.sleep(wait)
+                continue
+
+            break
 
         if resp.status_code == 404:
             return {
@@ -276,7 +313,7 @@ class TickerValidator:
 
         # ---- Name mismatch check ---------------------------------------- #
         if expected_name and actual_name:
-            if not _names_match(expected_name, actual_name):
+            if not _names_match(expected_name, actual_name, symbol=symbol):
                 return {
                     "valid": False,
                     "reason": (

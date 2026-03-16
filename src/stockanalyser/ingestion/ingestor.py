@@ -48,11 +48,13 @@ class StockDataIngestor:
         client: PolygonClient | None = None,
         validator: TickerValidator | None = None,
         cfg: Settings = default_settings,
+        run_validation: bool = False,
     ) -> None:
         self._spark = spark
         self._client = client or PolygonClient(cfg)
         self._validator = validator or TickerValidator(cfg)
         self._cfg = cfg
+        self._run_validation = run_validation
 
     def read_company_list(self, path: str | Path | None = None) -> DataFrame:
         file_path = str(path or self._cfg.input_file)
@@ -69,24 +71,31 @@ class StockDataIngestor:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> DataFrame:
-        tickers: list[str] = [
-            row.symbol for row in companies_df.select("symbol").collect()
-        ]
-        logger.info("=== TICKER VALIDATION ===")
-        validation = self._validator.validate(tickers)
-        print(validation.report())
+        rows = companies_df.select("symbol", "company_name").collect()
+        tickers = [row.symbol for row in rows]
+        company_names = {row.symbol: row.company_name for row in rows}
 
-        if validation.has_errors:
-            logger.warning(
-                "%d invalid tickers will be skipped: %s",
-                len(validation.invalid),
-                ", ".join(validation.invalid),
+        if self._run_validation:
+            logger.info("=== TICKER VALIDATION ===")
+            validation = self._validator.validate(tickers, company_names=company_names)
+            print(validation.report())
+
+            if validation.has_errors:
+                logger.warning(
+                    "%d invalid tickers will be skipped: %s",
+                    len(validation.invalid),
+                    ", ".join(validation.invalid),
+                )
+
+            valid_tickers = validation.valid
+            if not valid_tickers:
+                logger.error("No valid tickers to fetch. Aborting.")
+                sys.exit(1)
+        else:
+            logger.info(
+                "Ticker validation skipped. Use --validate-tickers to enable."
             )
-
-        valid_tickers = validation.valid
-        if not valid_tickers:
-            logger.error("No valid tickers to fetch. Aborting.")
-            sys.exit(1)
+            valid_tickers = tickers
 
         logger.info(
             "Fetching %d valid tickers | workers=%d | delay=%.0fs | est. %.1f min",

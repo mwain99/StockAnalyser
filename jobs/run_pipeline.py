@@ -60,6 +60,16 @@ def parse_args() -> argparse.Namespace:
         help="End date YYYY-MM-DD (default: %(default)s)",
     )
     parser.add_argument(
+        "--validate-tickers",
+        action="store_true",
+        dest="validate_tickers",
+        help=(
+            "Run pre-flight ticker validation against the Polygon reference API "
+            "before fetching bar data. Recommended when using a new or modified "
+            "input file. Adds ~20 mins on the free tier."
+        ),
+    )
+    parser.add_argument(
         "--skip-ingestion",
         action="store_true",
         help=(
@@ -95,7 +105,7 @@ def main() -> None:
         logger.info("Loaded %d raw records from disk", raw_df.count())
     else:
         logger.info("=== STAGE 1: INGESTION ===")
-        ingestor = StockDataIngestor(spark)
+        ingestor = StockDataIngestor(spark, run_validation=args.validate_tickers)
         raw_df = ingestor.ingest(
             input_path=args.input,
             start_date=args.start_date,

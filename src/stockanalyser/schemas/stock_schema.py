@@ -31,7 +31,7 @@ from pyspark.sql.types import (
 
 SP500_INPUT_SCHEMA = StructType(
     [
-        StructField("name", StringType(), nullable=False),
+        StructField("company_name", StringType(), nullable=False),
         StructField("symbol", StringType(), nullable=False),
     ]
 )
@@ -136,7 +136,7 @@ WEEKLY_DECREASE_SCHEMA = StructType(
         StructField("week_end", DateType(), nullable=False),
         StructField("start_price", DoubleType(), nullable=False),
         StructField("end_price", DoubleType(), nullable=False),
-        StructField("weekly_return", DoubleType(), nullable=False),   # fraction
+        StructField("weekly_return", DoubleType(), nullable=False),
         StructField("weekly_return_pct", DoubleType(), nullable=False),
     ]
 )

@@ -442,27 +442,36 @@ spark.read.parquet("output/t1_relative_increase").show()
 python setup_windows.py
 ```
 
-### Running the full pipeline
-
+## Running the full pipeline
 ```bat
-# Full run — fetches from API (~20 mins on free tier) and runs transforms
+# Normal run — no ticker validation, ~20 mins
 python jobs/run_pipeline.py --input data/stocks_list.csv
+
+# With ticker validation — ~40 mins, use when input file is new or changed
+python jobs/run_pipeline.py --input data/stocks_list.csv --validate-tickers
 
 # Skip ingestion — reuse already-saved raw data and run transforms only
 python jobs/run_pipeline.py --skip-ingestion
 
 # Quick test with 4 stocks
-python jobs/run_pipeline.py --input data/stocks_list_test.csv
+python jobs/run_pipeline.py --input data/stocks_list_test.csv --no-validate
 ```
-
-### Diagnostics
 
 ```bat
 # Inspect raw data for a specific symbol and date range
 python diagnostics/inspect_data.py --symbol UNH --from 2025-05-12 --to 2025-05-16
 
-# Check what Polygon returns for a ticker (useful for debugging validation failures)
-python diagnostics/debug_ticker.py FB
+## Check what Polygon returns for a ticker (useful for debugging validation failures)
+
+# Current state (today)
+python diagnostics/debug_ticker.py MMC
+
+# As of the analysis start date
+python diagnostics/debug_ticker.py MMC --date 2025-01-02
+
+# Useful for comparing before/after a rebrand
+python diagnostics/debug_ticker.py MMC --date 2026-01-01
+
 ```
 
 ### Troubleshooting
