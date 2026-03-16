@@ -57,9 +57,10 @@ stockanalyser/
 │   └── run_pipeline.py               # Main entry-point (wires all stages)
 │
 ├── data/
-│   ├── stocks_list.csv               # S&P 500 top 100 company list (corrected)
+│   ├── stocks_list.csv               # S&P 500 top 100 company list
 │   └── stocks_list_test.csv          # 2-stock test file (AAPL + MSFT)
-│
+│   └── stocks_list_corrected.csv     # S&P 500 top 100 company list corrected
+|
 ├── output/                           # Created at runtime
 │   ├── raw/                          # Raw Parquet (partitioned by symbol)
 │   ├── quarantine/                   # Bad rows with failure reason
@@ -228,7 +229,7 @@ The `company_name` column is used during ticker validation (see below) to verify
 
 ### Known Issues with Provided Input Files
 
-When sourcing S&P 500 constituent lists from third parties, be aware that **tickers change over time** as companies rebrand or restructure. The corrected file `data/stocks_list.csv` has already been validated and fixed. If you supply your own list, the pipeline will validate it automatically and report any problems before fetching data.
+When sourcing S&P 500 constituent lists from third parties, be aware that **tickers change over time** as companies rebrand or restructure. The corrected file `data/stocks_list_corrected.csv` has already been validated and fixed. If you supply your own list, the pipeline will validate it if you run the --validate-ticker flag and report any problems before fetching data.
 
 Two specific issues were found and corrected in the original input file provided with this assessment:
 
@@ -445,10 +446,10 @@ python setup_windows.py
 ## Running the full pipeline
 ```bat
 # Normal run — no ticker validation, ~20 mins
-python jobs/run_pipeline.py --input data/stocks_list.csv
+python jobs/run_pipeline.py --input data/stocks_list_corrected.csv
 
 # With ticker validation — ~40 mins, use when input file is new or changed
-python jobs/run_pipeline.py --input data/stocks_list.csv --validate-tickers
+python jobs/run_pipeline.py --input data/stocks_list_corrected.csv --validate-tickers
 
 # Skip ingestion — reuse already-saved raw data and run transforms only
 python jobs/run_pipeline.py --skip-ingestion
